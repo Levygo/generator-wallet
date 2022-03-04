@@ -1,0 +1,21 @@
+[package]
+name = "blergh"
+description = "Brute-force BTC wallet generator and checker"
+author = ["Ciecia <CieciaV2.0@gmail.com>"]
+version = "0.1.0"
+edition = "2021"
+readme = "README.md"
+keywords = ["cli","bitcoin","bruteforce","generator","performance"]
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitcoin = { version = "0.27.1", features = ["rand"] }
+anyhow = "1.0"
+rand = "0.8.5"
+num_cpus = "1.0"
+serde = "1.0.0"
+serde_json = "1.0"
+reqwest = { version = "0.11.9", features = ["blocking"] }
+clap = { version = "3.1.5", features = ["derive"] }
