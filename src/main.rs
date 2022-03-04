@@ -20,10 +20,11 @@ use clap::Parser;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn main() {
-    let logotype = r#"         ...     ..            ..                                                 
+    println!(
+        r#"     ...     ..            ..                                                 
   .=*8888x <"?88h.   x .d88"                                        .uef^"    
  X>  '8888H> '8888    5888R                 .u    .               :d88E       
 '88h. `8888   8888    '888R        .u     .d88B :@8c       uL     `888E       
@@ -37,25 +38,25 @@ fn main() {
         ^"**""          "%       "YP'                  `"   "888E  `Y"   888  
                                                       .dWi   `88E       J88"  
                                                       4888~  J8%        @%    
-                                                       ^"===*"`       :"      
-"#;
-
-    println!("{}(-h / --help)", logotype);
+                                                       ^"===*"`       :"      "#
+    );
+    println!("[Blergh started]");
 
     let mut cfg = Config::parse();
     if cfg.cpu_count == 0 {
         cfg.cpu_count = determine_cpus();
     }
-    (0..cfg.cpu_count).for_each(|idx| {
-        start_gen(idx, &cfg.source_file, cfg.verbose);
-    });
-    thread::sleep(Duration::from_millis(10));
+    let mut address_db =
+        load_address_map(cfg.source_file.clone()).expect("Failed to load addresses");
     loop {
+        (0..cfg.cpu_count).for_each(|idx| {
+            start_gen(idx, address_db.clone(), cfg.verbose, cfg.update_timeout);
+        });
         thread::sleep(Duration::from_secs(cfg.update_timeout));
-        // println!("Updating addresses");
         if let Err(e) = update_addr_db(&cfg.source_file) {
             println!("{}", e)
         };
+        address_db = load_address_map(cfg.source_file.clone()).expect("Failed to load addresses");
     }
 }
 
@@ -90,24 +91,30 @@ fn determine_cpus() -> usize {
     cpu_use
 }
 
-fn start_gen(thread_idx: usize, file: &str, verbose: bool) {
-    let file = file.to_string();
+fn start_gen(thread_idx: usize, address_db: HashSet<Address>, verbose: bool, timeout: u64) {
+    let time = Instant::now();
     thread::spawn(move || {
-        let address_db = load_address_map(file).expect("Failed to load addresses");
+        // let address_db = load_address_map(file).expect("Failed to load addresses");
         let secp = Secp256k1::new();
         let mut rng = OsRng::new().expect("OsRng");
 
-        println!("[Gen_{:02}] is UP️", &thread_idx);
+        println!("[Gen_{:02}] OK", &thread_idx);
         if verbose {
             loop {
                 let wallet = new_wallet(&secp, &mut rng);
                 println!("{}", &wallet);
                 check_wallet(&wallet, &address_db);
+                if time.elapsed().as_secs() > timeout {
+                    break;
+                }
             }
         } else {
             loop {
                 let wallet = new_wallet(&secp, &mut rng);
                 check_wallet(&wallet, &address_db);
+                if time.elapsed().as_secs() > timeout {
+                    break;
+                }
             }
         }
     });
@@ -217,11 +224,11 @@ fn update_addr_db(path: impl AsRef<Path> + Copy) -> Result<()> {
     let last_hash = get_last_block_hash_string().expect("API limits exceeded");
     let transacions = get_transactions(&last_hash)?;
     let address_string_map = load_string_map(path)?;
+    println!("Adding addresses to list:");
     for txid in transacions {
         let addresses = get_addresses(&txid)?;
-        // println!("{:?}", addresses);
         add_addresses_to_db(path, addresses, &address_string_map)?;
-        thread::sleep(Duration::from_secs(1));
+        thread::sleep(Duration::from_secs(2));
     }
     Ok(())
 }
@@ -242,8 +249,10 @@ fn add_addresses_to_db(
         let addr_str = addr.as_str().expect("Failed to parse address");
         if !address_string_map.contains(addr_str) && &addr_str[..2] != "bc" {
             message = format!("{}\n", addr_str);
-            println!("Adding addresses to list:\n{}", addr_str);
         }
+    }
+    if !message.is_empty() && message != "\n" {
+        print!("{}", &message);
     }
     file.write_all(message.as_bytes())
         .expect("Failed to write to file");
@@ -257,7 +266,7 @@ fn get_last_block_hash_string() -> Result<Value> {
     match blockchain.get("error") {
         Some(e) => {
             println!("{}", e);
-            panic!("Limits exceeded")
+            panic!("Limits exceeded");
         }
         None => {
             let hash = blockchain
