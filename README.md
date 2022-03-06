@@ -13,7 +13,7 @@ Please be mindful abuot our planet and don't waste more energy than is needed. I
 - Supports P2PKH and P2SH address formats
 
 ## Usage
-    blergh 0.1.0
+    blergh 0.1.1
     Brute-force BTC wallet generator and checker
 
     USAGE:
