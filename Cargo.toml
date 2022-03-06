@@ -1,8 +1,8 @@
 [package]
 name = "blergh"
 description = "Brute-force BTC wallet generator and checker"
-author = ["Ciecia <CieciaV2.0@gmail.com>"]
-version = "0.1.0"
+authors = ["Ciecia <CieciaV2.0@gmail.com>"]
+version = "0.1.1"
 edition = "2021"
 readme = "README.md"
 keywords = ["cli","bitcoin","bruteforce","generator","performance"]

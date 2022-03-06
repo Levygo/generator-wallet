@@ -15,14 +15,14 @@ use std::path::Path;
 use std::str::FromStr;
 
 // Util
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fmt;
 use std::time::{Duration, Instant};
 
-fn main() {
+fn main() -> Result<()> {
     println!(
         r#"     ...     ..            ..                                                 
   .=*8888x <"?88h.   x .d88"                                        .uef^"    
@@ -54,7 +54,7 @@ fn main() {
         });
         thread::sleep(Duration::from_secs(cfg.update_timeout));
         if let Err(e) = update_addr_db(&cfg.source_file) {
-            println!("{}", e)
+            println!("API limits exceeded ({})", e)
         };
         address_db = load_address_map(cfg.source_file.clone()).expect("Failed to load addresses");
     }
@@ -77,7 +77,7 @@ struct Config {
     verbose: bool,
 
     /// Time (in seconds) to wait between target file updates
-    #[clap(short, long, default_value = "600")]
+    #[clap(short, long, default_value = "1200")]
     update_timeout: u64,
 }
 
@@ -94,7 +94,6 @@ fn determine_cpus() -> usize {
 fn start_gen(thread_idx: usize, address_db: HashSet<Address>, verbose: bool, timeout: u64) {
     let time = Instant::now();
     thread::spawn(move || {
-        // let address_db = load_address_map(file).expect("Failed to load addresses");
         let secp = Secp256k1::new();
         let mut rng = OsRng::new().expect("OsRng");
 
@@ -221,10 +220,10 @@ fn save_wallet(wallet: &Wallet) -> Result<()> {
 }
 
 fn update_addr_db(path: impl AsRef<Path> + Copy) -> Result<()> {
-    let last_hash = get_last_block_hash_string().expect("API limits exceeded");
+    let last_hash = get_last_block_hash_string()?;
     let transacions = get_transactions(&last_hash)?;
     let address_string_map = load_string_map(path)?;
-    println!("Adding addresses to list:");
+    // println!("[Updating address list]");
     for txid in transacions {
         let addresses = get_addresses(&txid)?;
         add_addresses_to_db(path, addresses, &address_string_map)?;
@@ -246,7 +245,7 @@ fn add_addresses_to_db(
         .expect("No such file");
     let mut message = "".to_owned();
     for addr in addresses {
-        let addr_str = addr.as_str().expect("Failed to parse address");
+        let addr_str = addr.as_str().context("Failed to parse address")?;
         if !address_string_map.contains(addr_str) && &addr_str[..2] != "bc" {
             message = format!("{}\n", addr_str);
         }
@@ -263,20 +262,12 @@ fn get_last_block_hash_string() -> Result<Value> {
     let blockchain: Value = serde_json::from_str(
         &reqwest::blocking::get("https://api.blockcypher.com/v1/btc/main")?.text()?,
     )?;
-    match blockchain.get("error") {
-        Some(e) => {
-            println!("{}", e);
-            panic!("Limits exceeded");
-        }
-        None => {
-            let hash = blockchain
-                .get("previous_hash")
-                .expect("Failed to retrieve hash")
-                .to_owned();
+    let hash = blockchain
+        .get("previous_hash")
+        .context("Failed to retrieve hash")?
+        .to_owned();
 
-            Ok(hash)
-        }
-    }
+    Ok(hash)
 }
 
 fn get_transactions(block_hash: &Value) -> Result<Vec<Value>> {
@@ -289,9 +280,9 @@ fn get_transactions(block_hash: &Value) -> Result<Vec<Value>> {
     )?;
     let tx_list = tx_hashes
         .get("txids")
-        .expect("Failed to retrieve transactions")
+        .context("Failed to retrieve transactions")?
         .as_array()
-        .expect("Failed to parse")
+        .context("Failed to parse")?
         .to_vec();
     // println!("txs:{:#?}", tx_hashes);
     Ok(tx_list)
@@ -307,9 +298,9 @@ fn get_addresses(txid: &Value) -> Result<Vec<Value>> {
     )?;
     let addresses: Vec<Value> = addr_list_obj
         .get("addresses")
-        .expect("Failed to retrieve addresses")
+        .context("Failed to retrieve addresses")?
         .as_array()
-        .expect("Failed to parse")
+        .context("Failed to parse")?
         .to_vec();
     // println!("addr:{:#?}", addresses);
     Ok(addresses)
