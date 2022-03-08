@@ -13,7 +13,7 @@ Please be mindful abuot our planet and don't waste more energy than is needed. I
 - Supports P2PKH and P2SH address formats
 
 ## Usage
-    blergh 0.1.1
+    blergh 0.1.2
     Brute-force BTC wallet generator and checker
 
     USAGE:
@@ -30,7 +30,7 @@ Please be mindful abuot our planet and don't waste more energy than is needed. I
                 Path to file with target addresses [default: addr.txt]
 
         -u, --update-timeout <UPDATE_TIMEOUT>
-                Time (in seconds) to wait between target file updates [default: 600]
+                Time (in seconds) to wait between target file updates (0-no update) [default: 1200]
 
         -v, --verbose
                 Print wallets while generating
