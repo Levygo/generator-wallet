@@ -2,7 +2,7 @@
 name = "blergh"
 description = "Brute-force BTC wallet generator and checker"
 authors = ["Ciecia <CieciaV2.0@gmail.com>"]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 readme = "README.md"
 keywords = ["cli","bitcoin","bruteforce","generator","performance"]

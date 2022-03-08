@@ -40,23 +40,29 @@ fn main() -> Result<()> {
                                                       4888~  J8%        @%    
                                                        ^"===*"`       :"      "#
     );
-    println!("[Blergh started]");
 
     let mut cfg = Config::parse();
+    println!("[Started]");
     if cfg.cpu_count == 0 {
         cfg.cpu_count = determine_cpus();
     }
+    println!("Using {}/{} CPUs", &cfg.cpu_count, num_cpus::get());
     let mut address_db =
         load_address_map(cfg.source_file.clone()).expect("Failed to load addresses");
     loop {
         (0..cfg.cpu_count).for_each(|idx| {
             start_gen(idx, address_db.clone(), cfg.verbose, cfg.update_timeout);
         });
-        thread::sleep(Duration::from_secs(cfg.update_timeout));
-        if let Err(e) = update_addr_db(&cfg.source_file) {
-            println!("API limits exceeded ({})", e)
-        };
-        address_db = load_address_map(cfg.source_file.clone()).expect("Failed to load addresses");
+        if cfg.update_timeout != 0 {
+            thread::sleep(Duration::from_secs(cfg.update_timeout));
+            if let Err(e) = update_addr_db(&cfg.source_file) {
+                println!("API limits exceeded ({})", e)
+            };
+            address_db =
+                load_address_map(cfg.source_file.clone()).expect("Failed to load addresses");
+        } else {
+            thread::sleep(Duration::from_secs(1200));
+        }
     }
 }
 
@@ -76,7 +82,7 @@ struct Config {
     #[clap(short, long)]
     verbose: bool,
 
-    /// Time (in seconds) to wait between target file updates
+    /// Time (in seconds) to wait between target file updates (0-no update)
     #[clap(short, long, default_value = "1200")]
     update_timeout: u64,
 }
@@ -87,7 +93,6 @@ fn determine_cpus() -> usize {
     if cpu_count > 1 {
         cpu_use -= 1;
     };
-    println!("Using {}/{} CPUs", &cpu_use, &cpu_count);
     cpu_use
 }
 
